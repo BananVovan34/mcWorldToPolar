@@ -64,14 +64,8 @@ object EntityJsonSaver {
                                                 base["item"] = mapOf("id" to itemTag.getString("id"))
                                             }
 
-                                            val transformationMap = mutableMapOf<String, Any>()
-                                            val transformation = nbt.getCompound("transformation")
-                                            transformation?.getList<NBTFloat>("scale")?.let { transformationMap["scale"] = it.map { f -> f.value } }
-                                            transformation?.getList<NBTFloat>("translation")?.let { transformationMap["translation"] = it.map { f -> f.value } }
-                                            transformation?.getList<NBTFloat>("left_rotation")?.let { transformationMap["left_rotation"] = it.map { f -> f.value } }
-                                            transformation?.getList<NBTFloat>("right_rotation")?.let { transformationMap["right_rotation"] = it.map { f -> f.value } }
-
-                                            if (transformationMap.isNotEmpty()) {
+                                            val transformationMap = extractTransformation(nbt)
+                                            if (transformationMap != null) {
                                                 base["transformation"] = transformationMap
                                             }
 
@@ -81,11 +75,8 @@ object EntityJsonSaver {
                                         "minecraft:block_display" -> {
                                             base["block"] = nbt.getString("block_state") ?: "minecraft:stone"
 
-                                            val transformationMap = mutableMapOf<String, Any>()
-                                            nbt.getList<NBTFloat>("Scale")?.let { transformationMap["scale"] = it.map { f -> f.value } }
-                                            nbt.getList<NBTFloat>("Translation")?.let { transformationMap["translation"] = it.map { f -> f.value } }
-
-                                            if (transformationMap.isNotEmpty()) {
+                                            val transformationMap = extractTransformation(nbt)
+                                            if (transformationMap != null) {
                                                 base["transformation"] = transformationMap
                                             }
                                         }
@@ -96,6 +87,11 @@ object EntityJsonSaver {
                                             base["background"] = nbt.getInt("background") as Any
                                             base["see_through"] = nbt.getByte("see_through") == 1.toByte()
                                             base["shadow"] = nbt.getByte("shadow") == 1.toByte()
+
+                                            val transformationMap = extractTransformation(nbt)
+                                            if (transformationMap != null) {
+                                                base["transformation"] = transformationMap
+                                            }
                                         }
 
                                         "minecraft:armor_stand" -> {
@@ -136,5 +132,16 @@ object EntityJsonSaver {
         } finally {
             tempRoot.deleteRecursively()
         }
+    }
+
+    private fun extractTransformation(nbt: NBTCompound): Map<String, Any>? {
+        val transformationMap = mutableMapOf<String, Any>()
+        val transformation = nbt.getCompound("transformation") ?: return null
+        transformation.getList<NBTFloat>("scale")?.let { transformationMap["scale"] = it.map { f -> f.value } }
+        transformation.getList<NBTFloat>("translation")?.let { transformationMap["translation"] = it.map { f -> f.value } }
+        transformation.getList<NBTFloat>("left_rotation")?.let { transformationMap["left_rotation"] = it.map { f -> f.value } }
+        transformation.getList<NBTFloat>("right_rotation")?.let { transformationMap["right_rotation"] = it.map { f -> f.value } }
+
+        return transformationMap.ifEmpty { null }
     }
 }
