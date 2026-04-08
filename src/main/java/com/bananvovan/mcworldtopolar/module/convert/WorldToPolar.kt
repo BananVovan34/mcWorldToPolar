@@ -1,6 +1,6 @@
 package com.bananvovan.mcworldtopolar.module.convert
 
-import com.bananvovan.mcworldtopolar.module.extract.EntityLoader
+import com.bananvovan.mcworldtopolar.module.extract.EntityJsonSaver
 import net.hollowcube.polar.AnvilPolar
 import net.hollowcube.polar.PolarWriter
 import net.minestom.server.MinecraftServer
@@ -16,9 +16,6 @@ object WorldToPolar {
         // Инициализация Minestom
         MinecraftServer.init()
 
-        // Создаём временный инстанс для спавна сущностей
-        val instance: InstanceContainer = MinecraftServer.getInstanceManager().createInstanceContainer()
-
         val anvilPath = Paths.get(path)
         val resultPath = Paths.get("$path.polar")
 
@@ -28,7 +25,7 @@ object WorldToPolar {
             Files.write(resultPath, PolarWriter.write(polarWorld))
 
             // Парсим item_display и сохраняем JSON
-            EntityLoader.loadEntities(instance, anvilPath)
+            EntityJsonSaver.save(anvilPath)
 
             println("Done: $resultPath")
         } finally {
