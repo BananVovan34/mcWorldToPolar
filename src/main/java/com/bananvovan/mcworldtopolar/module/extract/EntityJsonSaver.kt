@@ -69,9 +69,12 @@ object EntityJsonSaver {
                                                 )
 
                                                 val components = tag.getCompound("components")
-                                                val model = components?.getString("minecraft:item_model") as Any
+                                                val modelRaw = components?.getString("minecraft:item_model")
+                                                if (modelRaw != null) {
+                                                    val model = modelRaw as Any
 
-                                                itemMap["model"] = model
+                                                    itemMap["model"] = model
+                                                }
 
                                                 itemMap
                                             } as Any
