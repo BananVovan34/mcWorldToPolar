@@ -85,6 +85,11 @@ object EntityJsonSaver {
                                             }
 
                                             nbt.getString("billboard")?.let { base["billboard"] = it }
+
+                                            val brightnessMap = extractBrightness(nbt)
+                                            if (brightnessMap != null) {
+                                                base["brightness"] = brightnessMap
+                                            }
                                         }
 
                                         "minecraft:block_display" -> {
@@ -115,6 +120,11 @@ object EntityJsonSaver {
                                             if (transformationMap != null) {
                                                 base["transformation"] = transformationMap
                                             }
+
+                                            val brightnessMap = extractBrightness(nbt)
+                                            if (brightnessMap != null) {
+                                                base["brightness"] = brightnessMap
+                                            }
                                         }
 
                                         "minecraft:text_display" -> {
@@ -139,6 +149,11 @@ object EntityJsonSaver {
                                             }
 
                                             nbt.getString("billboard")?.let { base["billboard"] = it }
+
+                                            val brightnessMap = extractBrightness(nbt)
+                                            if (brightnessMap != null) {
+                                                base["brightness"] = brightnessMap
+                                            }
                                         }
 
                                         "minecraft:armor_stand" -> {
@@ -238,5 +253,14 @@ object EntityJsonSaver {
         transformation.getList<NBTFloat>("right_rotation")?.let { transformationMap["right_rotation"] = it.map { f -> f.value } }
 
         return transformationMap.ifEmpty { null }
+    }
+
+    private fun extractBrightness(nbt: NBTCompound): Map<String, Any>? {
+        val brightness = nbt.getCompound("brightness") ?: return null
+        val brightnessMap = mutableMapOf<String, Any>()
+        brightness.getInt("block")?.let { brightnessMap["block"] = it }
+        brightness.getInt("sky")?.let { brightnessMap["sky"] = it }
+
+        return brightnessMap.ifEmpty { null }
     }
 }
