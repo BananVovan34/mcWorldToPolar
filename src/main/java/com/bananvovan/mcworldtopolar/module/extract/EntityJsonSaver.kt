@@ -9,8 +9,6 @@ import java.io.File
 import java.io.RandomAccessFile
 import java.nio.file.Files
 import java.nio.file.Path
-import kotlin.collections.forEach
-import kotlin.io.use
 
 object EntityJsonSaver {
 
@@ -27,7 +25,6 @@ object EntityJsonSaver {
         tempEntitiesDir.mkdirs()
 
         try {
-            // Копируем region файлы
             entitiesDir.listFiles { _, name -> name.endsWith(".mca") }?.forEach { src ->
                 val dst = File(tempEntitiesDir, src.name)
                 src.copyTo(dst, overwrite = true)
@@ -43,191 +40,12 @@ object EntityJsonSaver {
                     RegionFile(raf, regionX, regionZ).use { region ->
                         for (cx in 0 until 32) {
                             for (cz in 0 until 32) {
-
                                 val chunk = region.getChunkData(regionX * 32 + cx, regionZ * 32 + cz)
                                     ?: continue
                                 val entities = chunk.getList<NBTCompound>("Entities") ?: continue
 
                                 for (nbt in entities) {
-                                    val type = nbt.getString("id") ?: continue
-                                    val pos = nbt.getList<NBTDouble>("Pos")?.map { it.value } ?: listOf(0.0, 0.0, 0.0)
-                                    val rotation = nbt.getList<NBTFloat>("Rotation")?.map { it.value } ?: listOf(0f, 0f)
-
-                                    val base = mutableMapOf<String, Any>(
-                                        "type" to type,
-                                        "pos" to pos,
-                                        "rotation" to rotation
-                                    )
-
-                                    when (type) {
-                                        "minecraft:item_display" -> {
-                                            val itemTag = nbt.getCompound("item")
-
-                                            base["item"] = itemTag?.let { tag ->
-                                                val itemMap = mutableMapOf<String, Any>(
-                                                    "id" to tag.getString("id") as Any
-                                                )
-
-                                                val components = tag.getCompound("components")
-                                                val modelRaw = components?.getString("minecraft:item_model")
-                                                if (modelRaw != null) {
-                                                    val model = modelRaw as Any
-
-                                                    itemMap["model"] = model
-                                                }
-
-                                                itemMap
-                                            } as Any
-
-                                            val transformationMap = extractTransformation(nbt)
-                                            if (transformationMap != null) {
-                                                base["transformation"] = transformationMap
-                                            }
-
-                                            nbt.getString("billboard")?.let { base["billboard"] = it }
-
-                                            val brightnessMap = extractBrightness(nbt)
-                                            if (brightnessMap != null) {
-                                                base["brightness"] = brightnessMap
-                                            }
-                                        }
-
-                                        "minecraft:block_display" -> {
-                                            val blockState = nbt.getCompound("block_state")
-
-                                            blockState?.let {
-                                                val blockMap = mutableMapOf<String, Any>()
-
-                                                blockMap["name"] = it.getString("Name") ?: "minecraft:stone"
-
-                                                val props = it.getCompound("Properties")
-                                                props?.let { p ->
-                                                    val propsMap = mutableMapOf<String, String>()
-                                                    p.keys.forEach { key ->
-                                                        propsMap[key] = props.getString(key) as String
-                                                    }
-                                                    if (propsMap.isNotEmpty()) {
-                                                        blockMap["properties"] = propsMap
-                                                    }
-                                                }
-
-                                                base["block"] = blockMap
-
-                                                nbt.getString("billboard")?.let { base["billboard"] = it }
-                                            }
-
-                                            val transformationMap = extractTransformation(nbt)
-                                            if (transformationMap != null) {
-                                                base["transformation"] = transformationMap
-                                            }
-
-                                            val brightnessMap = extractBrightness(nbt)
-                                            if (brightnessMap != null) {
-                                                base["brightness"] = brightnessMap
-                                            }
-                                        }
-
-                                        "minecraft:text_display" -> {
-                                            base["text"] = nbt.getString("text") ?: "{\"text\":\"\"}"
-                                            base["text_opacity"] = nbt.getByte("text_opacity") as Any
-                                            nbt.getInt("alignment")?.let {
-                                                base["alignment"] = when (it) {
-                                                    0 -> "center"
-                                                    1 -> "left"
-                                                    2 -> "right"
-                                                    else -> "center"
-                                                }
-                                            }
-                                            base["line_width"] = nbt.getInt("line_width") as Any
-                                            base["background"] = nbt.getInt("background") as Any
-                                            base["see_through"] = nbt.getByte("see_through") == 1.toByte()
-                                            base["shadow"] = nbt.getByte("shadow") == 1.toByte()
-
-                                            val transformationMap = extractTransformation(nbt)
-                                            if (transformationMap != null) {
-                                                base["transformation"] = transformationMap
-                                            }
-
-                                            nbt.getString("billboard")?.let { base["billboard"] = it }
-
-                                            val brightnessMap = extractBrightness(nbt)
-                                            if (brightnessMap != null) {
-                                                base["brightness"] = brightnessMap
-                                            }
-                                        }
-
-                                        "minecraft:armor_stand" -> {
-                                            base["invisible"] = nbt.getByte("Invisible") == 1.toByte()
-                                            base["no_gravity"] = nbt.getByte("NoGravity") == 1.toByte()
-                                            base["small"] = nbt.getByte("Small") == 1.toByte()
-                                            base["arms"] = nbt.getByte("ShowArms") == 1.toByte()
-                                            base["base_plate"] = nbt.getByte("NoBasePlate") == 1.toByte()
-                                            base["marker"] = nbt.getByte("Marker") == 1.toByte()
-
-                                            val armorItems = nbt.getList<NBTCompound>("ArmorItems")
-                                            val handItems = nbt.getList<NBTCompound>("HandItems")
-
-                                            val equipment = mutableMapOf<String, Any>()
-
-                                            armorItems?.let {
-                                                equipment["feet"] = mapOf("id" to it[0].getString("id"))
-                                                equipment["legs"] = mapOf("id" to it[1].getString("id"))
-                                                equipment["chest"] = mapOf("id" to it[2].getString("id"))
-                                                equipment["head"] = mapOf("id" to it[3].getString("id"))
-                                            }
-
-                                            handItems?.let {
-                                                equipment["mainhand"] = mapOf("id" to it[0].getString("id"))
-                                                equipment["offhand"] = mapOf("id" to it[1].getString("id"))
-                                            }
-
-                                            if (equipment.isNotEmpty()) base["equipment"] = equipment
-
-                                            val pose = nbt.getCompound("Pose")
-                                            pose?.let {
-                                                val poseMap = mutableMapOf<String, Any>()
-
-                                                fun extract(name: String, key: String) {
-                                                    it.getList<NBTFloat>(name)?.let { list ->
-                                                        poseMap[key] = list.map { f -> f.value }
-                                                    }
-                                                }
-
-                                                extract("Head", "head")
-                                                extract("Body", "body")
-                                                extract("LeftArm", "left_arm")
-                                                extract("RightArm", "right_arm")
-                                                extract("LeftLeg", "left_leg")
-                                                extract("RightLeg", "right_leg")
-
-                                                if (poseMap.isNotEmpty()) base["pose"] = poseMap
-                                            }
-                                        }
-
-                                        "minecraft:item_frame" -> {
-                                            nbt.getCompound("Item")?.let { itemTag ->
-                                                base["item"] = mapOf("id" to itemTag.getString("id"))
-                                            }
-                                            nbt.getByte("Facing")?.let { base["facing"] = it.toInt() }
-                                            nbt.getByte("ItemRotation")?.let { base["rotation_item"] = it.toInt() }
-                                            base["invisible"] = nbt.getByte("Invisible") == 1.toByte()
-                                        }
-
-                                        "minecraft:glow_item_frame" -> {
-                                            nbt.getCompound("Item")?.let { itemTag ->
-                                                base["item"] = mapOf("id" to itemTag.getString("id"))
-                                            }
-                                            nbt.getByte("Facing")?.let { base["facing"] = it.toInt() }
-                                            nbt.getByte("ItemRotation")?.let { base["rotation_item"] = it.toInt() }
-                                            base["invisible"] = nbt.getByte("Invisible") == 1.toByte()
-                                        }
-
-                                        "minecraft:painting" -> {
-                                            base["variant"] = nbt.getString("variant") ?: ""
-                                        }
-                                    }
-
-                                    results.add(base)
+                                    extractEntity(nbt)?.let { results.add(it) }
                                 }
                             }
                         }
@@ -238,20 +56,152 @@ object EntityJsonSaver {
             val output = File(worldFolder.toFile(), "entities.json")
             output.writeText(gson.toJson(results))
             println("Saved ${results.size} entities → ${output.absolutePath}")
-
         } finally {
             tempRoot.deleteRecursively()
         }
     }
 
+    private fun extractEntity(nbt: NBTCompound): Map<String, Any>? {
+        val type = nbt.getString("id") ?: return null
+        val pos = nbt.getList<NBTDouble>("Pos")?.map { it.value } ?: listOf(0.0, 0.0, 0.0)
+        val rotation = nbt.getList<NBTFloat>("Rotation")?.map { it.value } ?: listOf(0f, 0f)
+
+        val base = mutableMapOf<String, Any>(
+            "type" to type,
+            "pos" to pos,
+            "rotation" to rotation,
+        )
+
+        val kept = when (type) {
+            "minecraft:item_display" -> extractItemDisplay(nbt, base)
+            "minecraft:block_display" -> extractBlockDisplay(nbt, base)
+            "minecraft:text_display" -> extractTextDisplay(nbt, base)
+            "minecraft:armor_stand" -> extractArmorStand(nbt, base)
+            "minecraft:item_frame", "minecraft:glow_item_frame" -> extractItemFrame(nbt, base)
+            "minecraft:painting" -> extractPainting(nbt, base)
+            else -> true
+        }
+
+        return if (kept) base else null
+    }
+
+    private fun extractItemDisplay(nbt: NBTCompound, base: MutableMap<String, Any>): Boolean {
+        nbt.getCompound("item")?.let { tag ->
+            val itemMap = mutableMapOf<String, Any>()
+            tag.getString("id")?.let { itemMap["id"] = it }
+            tag.getCompound("components")?.getString("minecraft:item_model")?.let { itemMap["model"] = it }
+            if (itemMap.isNotEmpty()) base["item"] = itemMap
+        }
+        extractTransformation(nbt)?.let { base["transformation"] = it }
+        nbt.getString("billboard")?.let { base["billboard"] = it }
+        extractBrightness(nbt)?.let { base["brightness"] = it }
+        return true
+    }
+
+    private fun extractBlockDisplay(nbt: NBTCompound, base: MutableMap<String, Any>): Boolean {
+        val blockState = nbt.getCompound("block_state") ?: run {
+            println("[EntityJsonSaver] block_display без block_state — пропускаем")
+            return false
+        }
+        val name = blockState.getString("Name") ?: run {
+            println("[EntityJsonSaver] block_display без Name — пропускаем")
+            return false
+        }
+
+        val blockMap = mutableMapOf<String, Any>("name" to name)
+        blockState.getCompound("Properties")?.let { props ->
+            val propsMap = mutableMapOf<String, String>()
+            props.keys.forEach { key -> props.getString(key)?.let { propsMap[key] = it } }
+            if (propsMap.isNotEmpty()) blockMap["properties"] = propsMap
+        }
+        base["block"] = blockMap
+
+        extractTransformation(nbt)?.let { base["transformation"] = it }
+        nbt.getString("billboard")?.let { base["billboard"] = it }
+        extractBrightness(nbt)?.let { base["brightness"] = it }
+        return true
+    }
+
+    private fun extractTextDisplay(nbt: NBTCompound, base: MutableMap<String, Any>): Boolean {
+        base["text"] = nbt.getString("text") ?: "{\"text\":\"\"}"
+        nbt.getByte("text_opacity")?.let { base["text_opacity"] = it.toInt() }
+        nbt.getInt("alignment")?.let {
+            base["alignment"] = when (it) {
+                1 -> "left"
+                2 -> "right"
+                else -> "center"
+            }
+        }
+        nbt.getInt("line_width")?.let { base["line_width"] = it }
+        nbt.getInt("background")?.let { base["background"] = it }
+        base["see_through"] = nbt.getByte("see_through") == 1.toByte()
+        base["shadow"] = nbt.getByte("shadow") == 1.toByte()
+
+        extractTransformation(nbt)?.let { base["transformation"] = it }
+        nbt.getString("billboard")?.let { base["billboard"] = it }
+        extractBrightness(nbt)?.let { base["brightness"] = it }
+        return true
+    }
+
+    private fun extractArmorStand(nbt: NBTCompound, base: MutableMap<String, Any>): Boolean {
+        base["invisible"] = nbt.getByte("Invisible") == 1.toByte()
+        base["no_gravity"] = nbt.getByte("NoGravity") == 1.toByte()
+        base["small"] = nbt.getByte("Small") == 1.toByte()
+        base["arms"] = nbt.getByte("ShowArms") == 1.toByte()
+        base["base_plate"] = nbt.getByte("NoBasePlate") == 1.toByte()
+        base["marker"] = nbt.getByte("Marker") == 1.toByte()
+
+        val equipment = mutableMapOf<String, Any>()
+        nbt.getList<NBTCompound>("ArmorItems")?.let { armor ->
+            armor[0].getString("id")?.let { equipment["feet"] = mapOf("id" to it) }
+            armor[1].getString("id")?.let { equipment["legs"] = mapOf("id" to it) }
+            armor[2].getString("id")?.let { equipment["chest"] = mapOf("id" to it) }
+            armor[3].getString("id")?.let { equipment["head"] = mapOf("id" to it) }
+        }
+        nbt.getList<NBTCompound>("HandItems")?.let { hands ->
+            hands[0].getString("id")?.let { equipment["mainhand"] = mapOf("id" to it) }
+            hands[1].getString("id")?.let { equipment["offhand"] = mapOf("id" to it) }
+        }
+        if (equipment.isNotEmpty()) base["equipment"] = equipment
+
+        nbt.getCompound("Pose")?.let { pose ->
+            val poseMap = mutableMapOf<String, Any>()
+            fun extract(name: String, key: String) {
+                pose.getList<NBTFloat>(name)?.let { list ->
+                    poseMap[key] = list.map { f -> f.value }
+                }
+            }
+            extract("Head", "head")
+            extract("Body", "body")
+            extract("LeftArm", "left_arm")
+            extract("RightArm", "right_arm")
+            extract("LeftLeg", "left_leg")
+            extract("RightLeg", "right_leg")
+            if (poseMap.isNotEmpty()) base["pose"] = poseMap
+        }
+        return true
+    }
+
+    private fun extractItemFrame(nbt: NBTCompound, base: MutableMap<String, Any>): Boolean {
+        nbt.getCompound("Item")?.getString("id")?.let { base["item"] = mapOf("id" to it) }
+        nbt.getByte("Facing")?.let { base["facing"] = it.toInt() }
+        nbt.getByte("ItemRotation")?.let { base["rotation_item"] = it.toInt() }
+        base["invisible"] = nbt.getByte("Invisible") == 1.toByte()
+        return true
+    }
+
+    private fun extractPainting(nbt: NBTCompound, base: MutableMap<String, Any>): Boolean {
+        nbt.getString("variant")?.let { base["variant"] = it }
+        return true
+    }
+
     private fun extractTransformation(nbt: NBTCompound): Map<String, Any>? {
-        val transformationMap = mutableMapOf<String, Any>()
         val transformation = nbt.getCompound("transformation") ?: return null
+        val transformationMap = mutableMapOf<String, Any>()
         transformation.getList<NBTFloat>("scale")?.let { transformationMap["scale"] = it.map { f -> f.value } }
         transformation.getList<NBTFloat>("translation")?.let { transformationMap["translation"] = it.map { f -> f.value } }
         transformation.getList<NBTFloat>("left_rotation")?.let { transformationMap["left_rotation"] = it.map { f -> f.value } }
         transformation.getList<NBTFloat>("right_rotation")?.let { transformationMap["right_rotation"] = it.map { f -> f.value } }
-
         return transformationMap.ifEmpty { null }
     }
 
@@ -260,7 +210,6 @@ object EntityJsonSaver {
         val brightnessMap = mutableMapOf<String, Any>()
         brightness.getInt("block")?.let { brightnessMap["block"] = it }
         brightness.getInt("sky")?.let { brightnessMap["sky"] = it }
-
         return brightnessMap.ifEmpty { null }
     }
 }
