@@ -1,0 +1,107 @@
+name: Build and release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Numeric application version (X.Y.Z)"
+        required: true
+        default: "1.0.0"
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.value }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Resolve release version
+        id: version
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_TYPE -eq "tag") {
+            if ($env:GITHUB_REF_NAME -notmatch '^v(\d+\.\d+\.\d+)$') {
+              throw "Release tag must match vX.Y.Z."
+            }
+            $version = $Matches[1]
+          } else {
+            $version = "${{ inputs.version }}"
+            if ($version -notmatch '^\d+\.\d+\.\d+$') {
+              throw "Manual version must match X.Y.Z."
+            }
+          }
+          "value=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Set up JDK 24
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "24"
+          cache: maven
+
+      - name: Ensure WiX Toolset
+        shell: pwsh
+        run: |
+          $candle = Get-Command candle.exe -ErrorAction SilentlyContinue
+          if ($candle) {
+            $wixBin = Split-Path -Parent $candle.Source
+          } else {
+            choco install wixtoolset --version=3.14.1 --no-progress -y
+            $wixBin = Get-ChildItem "${env:ProgramFiles(x86)}\WiX Toolset v3*\bin" -Directory -ErrorAction SilentlyContinue |
+              Sort-Object FullName -Descending |
+              Select-Object -ExpandProperty FullName -First 1
+          }
+
+          if (-not $wixBin) {
+            throw "WiX Toolset installation directory was not found."
+          }
+          $wixBin | Out-File -FilePath $env:GITHUB_PATH -Append
+
+      - name: Build Windows release bundle
+        shell: pwsh
+        run: ./scripts/package-windows.ps1 -Version "${{ steps.version.outputs.value }}"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mc-world-to-polar-${{ steps.version.outputs.value }}-windows
+          path: target/release/*
+          if-no-files-found: error
+
+  publish-release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download release bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: mc-world-to-polar-${{ needs.build-windows.outputs.version }}-windows
+          path: dist
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes --title "MC World to Polar $GITHUB_REF_NAME"
+          fi

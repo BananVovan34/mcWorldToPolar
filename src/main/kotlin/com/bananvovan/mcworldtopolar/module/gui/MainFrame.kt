@@ -1,11 +1,12 @@
 package com.bananvovan.mcworldtopolar.module.gui
 
+import com.bananvovan.mcworldtopolar.AppMetadata
 import com.bananvovan.mcworldtopolar.module.convert.WorldToPolar
 import java.awt.FlowLayout
 import java.io.File
 import javax.swing.*
 
-class MainFrame : JFrame("Конвертер мира Minecraft в Polar") {
+class MainFrame : JFrame(AppMetadata.name) {
 
     private val btnOpenDir = JButton("Выбрать директорию мира")
     private val btnSaveFile = JButton("Сохранить как Polar")
@@ -14,6 +15,7 @@ class MainFrame : JFrame("Конвертер мира Minecraft в Polar") {
 
     init {
         defaultCloseOperation = EXIT_ON_CLOSE
+        AppMetadata.iconUrl?.let { iconImage = ImageIcon(it).image }
         layout = FlowLayout()
 
         btnSaveFile.isEnabled = false

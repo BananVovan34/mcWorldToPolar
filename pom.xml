@@ -1,21 +1,24 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>com.bananvovan.mcworldtopolar</groupId>
   <artifactId>mcWorldToPolar</artifactId>
-  <version>1.0-SNAPSHOT</version>
+  <version>${revision}</version>
   <packaging>jar</packaging>
 
-  <name>mcWorldToPolar</name>
-  <url>http://maven.apache.org</url>
+  <name>MC World to Polar</name>
+  <description>Desktop converter for Minecraft Anvil worlds and Polar world data</description>
 
   <properties>
-    <maven.compiler.source>24</maven.compiler.source>
-    <maven.compiler.target>24</maven.compiler.target>
+    <revision>1.0.0-SNAPSHOT</revision>
+    <maven.compiler.release>24</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <kotlin.version>2.2.20</kotlin.version>
+    <junit.version>5.11.4</junit.version>
   </properties>
+
   <repositories>
     <repository>
       <id>jitpack.io</id>
@@ -24,6 +27,23 @@
   </repositories>
 
   <build>
+    <finalName>mcWorldToPolar</finalName>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>false</filtering>
+        <excludes>
+          <exclude>application.properties</exclude>
+        </excludes>
+      </resource>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>true</filtering>
+        <includes>
+          <include>application.properties</include>
+        </includes>
+      </resource>
+    </resources>
     <plugins>
       <plugin>
         <groupId>org.jetbrains.kotlin</groupId>
@@ -38,8 +58,7 @@
             </goals>
             <configuration>
               <sourceDirs>
-                <sourceDir>src/main/java</sourceDir>
-                <sourceDir>target/generated-sources/annotations</sourceDir>
+                <sourceDir>${project.basedir}/src/main/kotlin</sourceDir>
               </sourceDirs>
             </configuration>
           </execution>
@@ -49,64 +68,75 @@
             <goals>
               <goal>test-compile</goal>
             </goals>
+            <configuration>
+              <sourceDirs>
+                <sourceDir>${project.basedir}/src/test/kotlin</sourceDir>
+              </sourceDirs>
+            </configuration>
           </execution>
         </executions>
         <configuration>
-          <jvmTarget>24</jvmTarget>
+          <jvmTarget>${maven.compiler.release}</jvmTarget>
+          <javaParameters>true</javaParameters>
         </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.11.0</version>
+        <version>3.13.0</version>
         <configuration>
-          <release>24</release>
+          <release>${maven.compiler.release}</release>
         </configuration>
-        <executions>
-          <execution>
-            <id>default-compile</id>
-            <phase>none</phase>
-          </execution>
-          <execution>
-            <id>default-testCompile</id>
-            <phase>none</phase>
-          </execution>
-          <execution>
-            <id>compile</id>
-            <phase>compile</phase>
-            <goals>
-              <goal>compile</goal>
-            </goals>
-          </execution>
-          <execution>
-            <id>testCompile</id>
-            <phase>test-compile</phase>
-            <goals>
-              <goal>testCompile</goal>
-            </goals>
-          </execution>
-        </executions>
       </plugin>
       <plugin>
-        <artifactId>maven-assembly-plugin</artifactId>
-        <version>3.6.0</version>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-resources-plugin</artifactId>
+        <version>3.3.1</version>
         <configuration>
-          <descriptorRefs>
-            <descriptorRef>jar-with-dependencies</descriptorRef>
-          </descriptorRefs>
-          <archive>
-            <manifest>
-              <mainClass>com.bananvovan.mcworldtopolar.MainKt</mainClass>
-            </manifest>
-          </archive>
+          <propertiesEncoding>UTF-8</propertiesEncoding>
         </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.5.2</version>
+        <configuration>
+          <useModulePath>false</useModulePath>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.6.0</version>
         <executions>
           <execution>
-            <id>make-assembly</id>
             <phase>package</phase>
             <goals>
-              <goal>single</goal>
+              <goal>shade</goal>
             </goals>
+            <configuration>
+              <createDependencyReducedPom>false</createDependencyReducedPom>
+              <minimizeJar>false</minimizeJar>
+              <filters>
+                <filter>
+                  <artifact>*:*</artifact>
+                  <excludes>
+                    <exclude>META-INF/*.SF</exclude>
+                    <exclude>META-INF/*.DSA</exclude>
+                    <exclude>META-INF/*.RSA</exclude>
+                    <exclude>META-INF/MANIFEST.MF</exclude>
+                    <exclude>module-info.class</exclude>
+                    <exclude>META-INF/versions/*/module-info.class</exclude>
+                  </excludes>
+                </filter>
+              </filters>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                  <mainClass>com.bananvovan.mcworldtopolar.MainKt</mainClass>
+                </transformer>
+              </transformers>
+            </configuration>
           </execution>
         </executions>
       </plugin>
@@ -114,12 +144,6 @@
   </build>
 
   <dependencies>
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>3.8.1</version>
-      <scope>test</scope>
-    </dependency>
     <dependency>
       <groupId>com.google.code.gson</groupId>
       <artifactId>gson</artifactId>
@@ -166,11 +190,6 @@
       <version>2026.03.03-1.21.11</version>
     </dependency>
     <dependency>
-      <groupId>net.minestom</groupId>
-      <artifactId>data</artifactId>
-      <version>1.21.11-rv2</version>
-    </dependency>
-    <dependency>
       <groupId>io.github.jglrxavpok.hephaistos</groupId>
       <artifactId>common</artifactId>
       <version>2.6.1</version>
@@ -182,13 +201,19 @@
     </dependency>
     <dependency>
       <groupId>org.jetbrains.kotlin</groupId>
-      <artifactId>kotlin-stdlib-jdk8</artifactId>
+      <artifactId>kotlin-stdlib</artifactId>
       <version>${kotlin.version}</version>
     </dependency>
     <dependency>
       <groupId>org.jetbrains.kotlin</groupId>
-      <artifactId>kotlin-test</artifactId>
+      <artifactId>kotlin-test-junit5</artifactId>
       <version>${kotlin.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>${junit.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
