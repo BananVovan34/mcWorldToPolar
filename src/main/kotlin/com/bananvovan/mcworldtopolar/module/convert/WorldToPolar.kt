@@ -4,7 +4,6 @@ import com.bananvovan.mcworldtopolar.module.extract.EntityJsonSaver
 import net.hollowcube.polar.AnvilPolar
 import net.hollowcube.polar.PolarWriter
 import net.minestom.server.MinecraftServer
-import net.minestom.server.instance.InstanceContainer
 import java.nio.file.Files
 import java.nio.file.Paths
 
